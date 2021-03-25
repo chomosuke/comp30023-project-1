@@ -1,10 +1,13 @@
 #include "head.h"
 #include "process.h"
 #include "events.h"
+#include "cpu.h"
 
 Process **readProcesses(const char *fileName, unsigned *size, int numCPU);
+Events *runProcesses(Process **processes, int numCPU);
+void printResults(Events *events, Process **processes, unsigned processesSize);
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
     /* read cmd arguments */
     char* fileName;
@@ -27,13 +30,15 @@ int main(int argc, char** argv) {
     unsigned processesSize;
     Process** processes = readProcesses(fileName, &processesSize, numCPU);
 
+    /* go through processes one by one and allocate their child to CPUs and collect their events */
+    Events *events = runProcesses(processes, numCPU);
 
+    /* sort events */
+    printResults(events, processes, processesSize);
 
-    int sec = 0;
     for (i = 0; i < processesSize; i++) {
-        // if (processes[i].parallelisable)
+        destroyProcess(processes[i]);
     }
-
     free(processes);
 
     return 0;
@@ -71,6 +76,46 @@ Process **readProcesses(const char *fileName, unsigned *size, int numCPU) {
     *size = i;
 
     return processes;
+}
+
+Events *runProcesses(Process** processes, int numCPU) {
+    /* initialize some CPU */
+    CPU** cpus = malloc(numCPU * sizeof(CPU*));
+    int i;
+    for (i = 0; i < numCPU; i++) {
+        cpus[i] = newCPU();
+    }
+
+    /*  */
+    
+
+    for (i = 0; i < numCPU; i++) {
+        destroyCPU(cpus[i]);
+    }
+    free(cpus);
+}
+
+void printResults(Events *events, Process **processes, unsigned processesSize) {
+    sortEvents(events);
+
+    unsigned j = 0;
+    unsigned procRemaining = 0;
+
+    Time totalTurnAround = 0;
+
+    unsigned i;
+    for (i = 0; i < events->length; i++) {
+        Event *event = events->array[i];
+        if (event->type == RUNNING) {
+            printf("%u,RUNNING,pid=%u,remaining_time=%u,cpu=%d",
+                   event->currentTime, event->pid, event->remainingTime, event->cpu);
+        } else if (event->type == FINISHED) {
+            printf("%u,FINISHED,pid=%u,proc_remaining=%u",
+                   event->currentTime, event->pid, procRemaining);
+        } else {
+            printf("Event type error");
+        }
+    }
 }
 
 /* tested using:
