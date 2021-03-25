@@ -48,7 +48,7 @@ Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, i
 
     int i;
     for (i = 0; i < this->numChildren; i++) {
-        this->children[i] = newSubprocess(this, remainingTime, this->id);
+        this->children[i] = newSubprocess(this, remainingTime, i);
     }
 
     return this;
@@ -69,5 +69,5 @@ void destroyProcess(Process *this) {
     for (i = 0; i < this->numChildren; i++) {
         destorySubprocess(this->children[i]);
     }
-    destroyProcess(this);
+    free(this);
 }

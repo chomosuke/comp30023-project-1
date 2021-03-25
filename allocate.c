@@ -4,7 +4,7 @@
 #include "cpu.h"
 
 Process **readProcesses(const char *fileName, unsigned *size, int numCPU);
-Events *runProcesses(Process **processes, int numCPU);
+Events *runProcesses(Process **processes, unsigned processesSize, int numCPU);
 void printResults(Events *events, Process **processes, unsigned processesSize);
 
 int main(int argc, char **argv) {
@@ -31,15 +31,21 @@ int main(int argc, char **argv) {
     Process** processes = readProcesses(fileName, &processesSize, numCPU);
 
     /* go through processes one by one and allocate their child to CPUs and collect their events */
-    Events *events = runProcesses(processes, numCPU);
+    Events *events = runProcesses(processes, processesSize, numCPU);
+
 
     /* sort events */
     printResults(events, processes, processesSize);
 
+
+
     for (i = 0; i < processesSize; i++) {
         destroyProcess(processes[i]);
     }
+    
     free(processes);
+
+    destroyEvents(events);
 
     return 0;
 }
@@ -78,21 +84,73 @@ Process **readProcesses(const char *fileName, unsigned *size, int numCPU) {
     return processes;
 }
 
-Events *runProcesses(Process** processes, int numCPU) {
+Events *runProcesses(Process** processes, unsigned processesSize, int numCPU) {
+
+    Events *events = newEvents();
+
     /* initialize some CPU */
     CPU** cpus = malloc(numCPU * sizeof(CPU*));
-    int i;
+    unsigned i;
     for (i = 0; i < numCPU; i++) {
-        cpus[i] = newCPU();
+        cpus[i] = newCPU(i);
     }
 
-    /*  */
-    
+    bool *allocated = malloc(numCPU * sizeof(bool));
+
+    Time *lastAllocated = malloc(numCPU * sizeof(Time));
+    for (i = 0; i < numCPU; i++) {
+        lastAllocated[i] = 0;
+    }
+
+    /* allocate processes to cpu one by one */ 
+    for (i = 0; i < processesSize; i++) {
+        int j;
+
+        /* all cpu unallocated at the start */
+        for (j = 0; j < numCPU; j++) {
+            allocated[j] = false;
+        }
+
+        for (j = 0; j < processes[i]->numChildren; j++) {
+
+            /* allocate the subprocess */
+
+            /* find cpu with shortest remaining time that's not allocated yet */
+            int k;
+            int shortestCpu = 0;
+            for (k = 1; k < numCPU; k++) {
+                if (!allocated[k]
+                 && cpus[k]->remainingQueueTime < cpus[shortestCpu]->remainingQueueTime) {
+                    shortestCpu = k;
+                }
+            }
+
+            Events *newEvents = 
+                elapseTimeAndAddToQueue(cpus[shortestCpu], lastAllocated[shortestCpu], processes[i]->children[j], processes[i]->arriveTime);
+
+            concatAndDestroyOther(events, newEvents);
+
+            allocated[shortestCpu] = true;
+            lastAllocated[shortestCpu] = processes[i]->arriveTime;
+        }
+    }
+
+
+    /* run all the remaining processes */
+    for (i = 0; i < numCPU; i++) {
+        Events *newEvents = finishAllProcesses(cpus[i], lastAllocated[i]);
+        concatAndDestroyOther(events, newEvents);
+    }
 
     for (i = 0; i < numCPU; i++) {
         destroyCPU(cpus[i]);
     }
     free(cpus);
+
+    free(allocated);
+    free(lastAllocated);
+
+    return events;
 }
 
 void printResults(Events *events, Process **processes, unsigned processesSize) {
@@ -107,10 +165,10 @@ void printResults(Events *events, Process **processes, unsigned processesSize) {
     for (i = 0; i < events->length; i++) {
         Event *event = events->array[i];
         if (event->type == RUNNING) {
-            printf("%u,RUNNING,pid=%u,remaining_time=%u,cpu=%d",
+            printf("%u,RUNNING,pid=%s,remaining_time=%u,cpu=%d\n",
                    event->currentTime, event->pid, event->remainingTime, event->cpu);
         } else if (event->type == FINISHED) {
-            printf("%u,FINISHED,pid=%u,proc_remaining=%u",
+            printf("%u,FINISHED,pid=%s,proc_remaining=%u\n",
                    event->currentTime, event->pid, procRemaining);
         } else {
             printf("Event type error");
@@ -119,5 +177,5 @@ void printResults(Events *events, Process **processes, unsigned processesSize) {
 }
 
 /* tested using:
- gcc -Wall -o allocate allocate.c -std=c89
+ gcc -Wall -o allocate allocate.c events.c process.c cpu.c -std=c89
 */

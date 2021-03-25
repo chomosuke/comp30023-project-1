@@ -6,6 +6,7 @@ bool eventInOrder(Event *a, Event *b);
 
 Events *newEvents() {
     Events *this = malloc(sizeof(Events));
+    assert(this != NULL);
     this->length = 0;
     this->size = 2;
     this->array = malloc(this->size * sizeof(Event*));
@@ -25,12 +26,13 @@ void addEvent(Events *this, Event* event) {
 
 void addRunning(Events *this, Time currentTime, Subprocess* subprocess, int cpu) {
     Event *event = malloc(sizeof(Event));
+    assert(event != NULL);
     event->currentTime = currentTime;
     event->type = RUNNING;
-    if (subprocess->parent->numChildren == 1) {
-        sprintf(event->pid, "%d", subprocess->parent->id);
-    } else {
+    if (subprocess->parent->parallelisable) {
         sprintf(event->pid, "%d.%d", subprocess->parent->id, subprocess->id);
+    } else {
+        sprintf(event->pid, "%d", subprocess->parent->id);
     }
     event->remainingTime = subprocess->remainingTime;
     event->cpu = cpu;
@@ -60,10 +62,13 @@ void mergeSortEvents(Events *this, unsigned start, unsigned end) {
     mergeSortEvents(this, start, mid);
     mergeSortEvents(this, mid, end);
 
-    Event** result = malloc((start - end) * sizeof(Event*));
-    int i, s = 0, m = 0;
-    for (i = 0; i < start - end; i++) {
-        if (eventInOrder(this->array[start + s], this->array[mid + m])) {
+    long long resultSize = (end - start) * sizeof(Event*);
+    Event** result = malloc(resultSize);
+    unsigned i, s = 0, m = 0;
+    for (i = 0; i < end - start; i++) {
+        if (mid + m >= end
+        || (start + s < mid
+         && eventInOrder(this->array[start + s], this->array[mid + m]))) {
             result[i] = this->array[start + s];
             s++;
         } else {
@@ -72,7 +77,7 @@ void mergeSortEvents(Events *this, unsigned start, unsigned end) {
         }
     }
 
-    memcpy(this->array + start, result, start - end);
+    memcpy(this->array + start, result, resultSize);
 
     free(result);
 }

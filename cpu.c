@@ -1,13 +1,19 @@
 #include "cpu.h"
 
+struct SubprocessNode { /* this will be managed by CPU */
+    Subprocess *subprocess; /* cpu only run subprocesses */
+    SubprocessNode *next;
+};
+
 void addToQueue(CPU *this, Subprocess* toAdd);
 Subprocess *popHead(CPU *this);
-void pushHead(CPU *this, Subprocess *subprocess);
 
-CPU *newCPU() {
+CPU *newCPU(int id) {
     CPU *this = malloc(sizeof(CPU));
+    assert(this != NULL);
     this->remainingQueueTime = 0;
     this->head = NULL;
+    this->id = id;
     return this;
 }
 
@@ -30,20 +36,23 @@ Events *elapseTimeAndAddToQueue(CPU *this, Time lastTime, Subprocess *toAdd, Tim
     Events *events = newEvents();
 
     Time toBeElapsed = addTime - lastTime;
+
     bool unfinished = false;
-    while (true) {
+    while (this->head != NULL) {
 
         /* elapse time for running process */
         Subprocess *running = this->head->subprocess;
         if (running->remainingTime > toBeElapsed) {
             running->remainingTime -= toBeElapsed;
             this->remainingQueueTime -= toBeElapsed;
+            toBeElapsed = 0;
 
             /* new process added in a middle of process running */
             unfinished = true;
             break;
         } else {
             toBeElapsed -= running->remainingTime;
+            this->remainingQueueTime -= running->remainingTime;
             running->remainingTime = 0;
 
             /* finished, remove from queue */
@@ -62,17 +71,8 @@ Events *elapseTimeAndAddToQueue(CPU *this, Time lastTime, Subprocess *toAdd, Tim
             }
         }
     }
+    
     addToQueue(this, toAdd);
-
-    // if (unfinished && toAdd == this->head->subprocess
-    //  && this->head->next != NULL
-    //  && toAdd->remainingTime == this->head->next->subprocess->remainingTime) {
-    //     /* swap */
-    //     Subprocess *second = popHead(this);
-    //     Subprocess *first = popHead(this);
-    //     pushHead(this, second);
-    //     pushHead(this, first);
-    // }
 
     if (unfinished && toAdd != this->head->subprocess) {
         /* no new event */
@@ -83,6 +83,9 @@ Events *elapseTimeAndAddToQueue(CPU *this, Time lastTime, Subprocess *toAdd, Tim
 }
 
 void addToQueue(CPU *this, Subprocess* toAdd) {
+    
+    this->remainingQueueTime += toAdd->remainingTime;
+
     /* insert into the correct place */
     SubprocessNode *walk = this->head;
     SubprocessNode *previous = NULL;
@@ -104,6 +107,8 @@ void addToQueue(CPU *this, Subprocess* toAdd) {
 
     if (previous != NULL) {
         previous->next = node;
+    } else {
+        this->head = node;
     }
 }
 
@@ -112,17 +117,10 @@ Subprocess *popHead(CPU *this) {
         printf("nothing to remove.");
     }
     Subprocess *result = this->head->subprocess;
-    free(this->head);
+    SubprocessNode *previous = this->head;
     this->head = this->head->next;
+    free(previous);
     return result;
-}
-
-void pushHead(CPU *this, Subprocess *subprocess) {
-    SubprocessNode *node = malloc(sizeof(SubprocessNode));
-    node->subprocess = subprocess;
-    SubprocessNode *previousHead = this->head;
-    this->head = node;
-    node->next = previousHead;
 }
 
 void destroyCPU(CPU *this) {
