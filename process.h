@@ -26,7 +26,7 @@ struct Process { /* an OOP struct */
 struct Subprocess { /* an OOP struct */
     Process* parent;
     Time remainingTime;
-    char id[16]; /* 10 for 2^32, 4 for up to 1024 CPU, 1 for . and 1 for \0 */
+    char id[IDLENGTH];
 };
 
 Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, int numCPU) {

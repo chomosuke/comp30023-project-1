@@ -25,12 +25,9 @@ int main(int argc, char** argv) {
     }
 
     unsigned processesSize;
-    Process* processes = readProcesses(fileName, &processesSize, numCPU);
+    Process** processes = readProcesses(fileName, &processesSize, numCPU);
 
-    // for (i = 0; i < processesSize; i++) {
-    //     printf("%u, %u, %u, %d\n", processes[i].arriveTime, processes[i].id,
-    //     processes[i].exeTime, processes[i].parallelisable);
-    // }
+
 
     int sec = 0;
     for (i = 0; i < processesSize; i++) {

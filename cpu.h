@@ -12,6 +12,7 @@ typedef struct SubprocessNode SubprocessNode;
 struct CPU { /* an OOP struct */
     SubprocessQueue queue;
     Time remainingQueueTime;
+    int id;
 };
 
 struct SubprocessQueue { /* this will be managed by CPU */
@@ -33,40 +34,80 @@ CPU *newCPU() {
     return this;
 }
 
-Events *elapseTime(CPU *this, Time lastTime, Time now) {
-}
-
 Events *elapseTimeAndAddToQueue(CPU *this, Time lastTime, Subprocess *toAdd, Time addTime) {
-    Time elapsed = addTime - lastTime;
-    while (this->queue.head != NULL) {
+
+    Events *events = newEvents();
+
+    Time toBeElapsed = addTime - lastTime;
+    bool unfinished = false;
+    while (true) {
 
         /* elapse time for running process */
         Subprocess *running = this->queue.head->subprocess;
-        if (running->remainingTime >= elapsed) {
-            running->remainingTime -= elapsed;
-            this->remainingQueueTime -= elapsed;
+        if (running->remainingTime > toBeElapsed) {
+            running->remainingTime -= toBeElapsed;
+            this->remainingQueueTime -= toBeElapsed;
 
-            if (running->remainingTime == 0) {
-                /* process finish as new process is added */
-            } else {
-                /* new process added in a middle of process running */
-            }
-
+            /* new process added in a middle of process running */
+            unfinished = true;
             break;
         } else {
+            toBeElapsed -= running->remainingTime;
+            running->remainingTime = 0;
+
             /* finished, remove from queue */
             removeQueueHead(this);
 
-            /* update elapsed time for upcoming process */
-            elapsed = -running->remainingTime;
-            running->remainingTime = 0; /* for con */
-            /* start next */
+            /* check parent finished */
+            if (isFinished(running->parent)) {
+                addFinished(events, addTime - toBeElapsed, running->parent);
+            }
+
+            /* is there a next process to start? */
+            if (this->queue.head != NULL && toBeElapsed != 0) {
+                addRunning(events, addTime - toBeElapsed, this->queue.head->subprocess, this->id);
+            } else {
+                break;
+            }
         }
     }
+    addToQueue(this, toAdd);
+    if (unfinished && toAdd != this->queue.head->subprocess) {
+        /* no new event */
+    } else {
+        addRunning(events, addTime, this->queue.head->subprocess, this->id);
+    }
+    return events;
 }
 
-void addToQueue(CPU *this, Subprocess* process) {
+void addToQueue(CPU *this, Subprocess* toAdd) {
     /* insert into the correct place */
+    SubprocessNode *walk = this->queue.head;
+    while (walk != NULL) {
+        if (toAdd->remainingTime < walk->remaningTime
+        || (toAdd->remainingTime == walk->remainingTime
+         && toAdd->parent->id < walk->parent->id)) {
+            break;
+        }
+    }
+
+    /* insert before walk */
+    SubprocessNode *node = malloc(sizeof(SubprocessNode));
+    node->data = toAdd;
+
+    SubprocessNode *previous;
+    if (walk != NULL) {
+        previous = walk->previous;
+        walk->previous = node;
+    } else {
+        previous = this->queue.tail;
+    }
+    node->next = walk;
+
+    if (previous != NULL) {
+        previous->next = node;
+    }
+    node->previous = previous;
 }
 
 void removeQueueHead(CPU *this) {

@@ -6,6 +6,13 @@
 typedef struct Event Event;
 typedef struct Events Events;
 
+Events *newEvents();
+void addEvent(Events *this, Event* event);
+void addRunning(Events *this, Time currentTime, Subprocess* subprocess, int cpu);
+void addFinished(Events *this, Time currentTime, Process* process);
+void concatAndDestroyOther(Events *this, Events *other);
+void destroyEvents(Events *this);
+
 /* returned by elapseTimeAndAddToQueue() and interpreted by main */
 struct Events { /* an OOP struct */
     Event** array;
@@ -16,7 +23,7 @@ struct Events { /* an OOP struct */
 struct Event { /* will only exist in Events */
     Time currentTime;
     char type[9]; /* FINISHED or RUNNING */
-    ID pid;
+    char pid[IDLENGTH];
 
     /* for RUNNING */
     Time remainingTime;
@@ -45,22 +52,22 @@ void addEvent(Events *this, Event* event) {
     this->array[this->length - 1] = event;
 }
 
-void addRunning(Events *this, Time currentTime, ID pid, Time remainingTime, int cpu) {
+void addRunning(Events *this, Time currentTime, Subprocess* subprocess, int cpu) {
     Event *event = malloc(sizeof(Event));
     event->currentTime = currentTime;
     strcpy(event->type, "RUNNING");
-    event->pid = pid;
-    event->remainingTime = remainingTime;
+    strcpy(event->pid, subprocess->id);
+    event->remainingTime = subprocess->remainingTime;
     event->cpu = cpu;
     addEvent(this, event);
 }
 
-void addFinished(Events *this, Time currentTime, ID pid, unsigned procRemaining) {
+void addFinished(Events *this, Time currentTime, Process* process) {
     Event *event = malloc(sizeof(Event));
     event->currentTime = currentTime;
     strcpy(event->type, "FINISHED");
-    event->pid = pid;
-    event->procRemaining = procRemaining;
+    sprintf(event->pid, "%u", process->id);
+    /* procRemaining will be calculated by main when it's sorting events */
     addEvent(this, event);
 }
 
