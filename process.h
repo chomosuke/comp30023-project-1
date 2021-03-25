@@ -12,29 +12,6 @@ Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, i
 bool isFinished(Process *this);
 void destroyProcess(Process *this);
 
-struct Subprocess { /* an OOP struct */
-    Process* parent;
-    Time remainingTime;
-    char id[16]; /* 10 for 2^32, 4 for up to 1024 CPU, 1 for . and 1 for \0 */
-};
-
-Subprocess *newSubprocess(Process *parent, Time remainingTime, unsigned id, unsigned parentId) {
-    Subprocess *this = malloc(sizeof(Subprocess));
-    this->parent = parent;
-    if (parent->numChildren == 1) {
-        sprintf(this->id, "%d", parentId);
-    } else {
-        sprintf(this->id, "%d.%d", parentId, id);
-    }
-    this->remainingTime = remainingTime;
-
-    return this;
-}
-
-void destorySubprocess(Subprocess *this) {
-    free(this);
-}
-
 struct Process { /* an OOP struct */
     Subprocess** children; /* non parallelisable process */
     int numChildren;       /* will still contain 1 subprocess */
@@ -45,6 +22,12 @@ struct Process { /* an OOP struct */
     Time startTime;
     Time finishTime;
 }; /* Process will manage it's children */
+
+struct Subprocess { /* an OOP struct */
+    Process* parent;
+    Time remainingTime;
+    char id[16]; /* 10 for 2^32, 4 for up to 1024 CPU, 1 for . and 1 for \0 */
+};
 
 Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, int numCPU) {
 
@@ -92,6 +75,23 @@ void destroyProcess(Process *this) {
         destorySubprocess(this->children[i]);
     }
     destroyProcess(this);
+}
+
+Subprocess *newSubprocess(Process *parent, Time remainingTime, unsigned id, unsigned parentId) {
+    Subprocess *this = malloc(sizeof(Subprocess));
+    this->parent = parent;
+    if (parent->numChildren == 1) {
+        sprintf(this->id, "%d", parentId);
+    } else {
+        sprintf(this->id, "%d.%d", parentId, id);
+    }
+    this->remainingTime = remainingTime;
+
+    return this;
+}
+
+void destorySubprocess(Subprocess *this) {
+    free(this);
 }
 
 #endif
