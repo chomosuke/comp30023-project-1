@@ -8,6 +8,7 @@ typedef struct Subprocess Subprocess;
 
 Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, int numCPU);
 bool isFinished(Process *this);
+void recordSubprocessFinished(Process* this, Time currentTime);
 void destroyProcess(Process *this);
 
 struct Process { /* an OOP struct */
@@ -17,7 +18,7 @@ struct Process { /* an OOP struct */
     ID id;
     Time exeTime;
     bool parallelisable;
-    Time startTime;
+    bool finishRecorded;
     Time finishTime;
 }; /* Process will manage it's children */
 

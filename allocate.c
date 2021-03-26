@@ -5,14 +5,18 @@
 
 Process **readProcesses(const char *fileName, unsigned *size, int numCPU);
 Events *runProcesses(Process **processes, unsigned processesSize, int numCPU);
+void sortProcesses(Process** processes, unsigned processesSize);
+bool processesInOrder(Process* a, Process* b);
 void printResults(Events *events, Process **processes, unsigned processesSize);
 
 int main(int argc, char **argv) {
 
     /* read cmd arguments */
+    /* char* fileName = "E:/Study/TODO/comp30023-2021-project-1/testcases/task6/input/test_p4_p_2.txt";
+     int numCPU = 4, i; */
     char* fileName;
-    bool challenge;
-    int numCPU, i;
+    int numCPU = 4, i;
+    bool challenge = false;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-f") == 0) {
             i++;
@@ -86,6 +90,8 @@ Process **readProcesses(const char *fileName, unsigned *size, int numCPU) {
 
 Events *runProcesses(Process** processes, unsigned processesSize, int numCPU) {
 
+    sortProcesses(processes, processesSize);
+
     Events *events = newEvents();
 
     /* initialize some CPU */
@@ -96,19 +102,21 @@ Events *runProcesses(Process** processes, unsigned processesSize, int numCPU) {
     }
 
     bool *allocated = malloc(numCPU * sizeof(bool));
-
-    Time *lastAllocated = malloc(numCPU * sizeof(Time));
-    for (i = 0; i < numCPU; i++) {
-        lastAllocated[i] = 0;
-    }
+    assert(allocated != NULL);
+    Time lastTime = 0;
 
     /* allocate processes to cpu one by one */ 
     for (i = 0; i < processesSize; i++) {
+
+        Time currentTime = processes[i]->arriveTime;
+
         int j;
 
-        /* all cpu unallocated at the start */
+        /* elapse time for all cpu and mark them unallocated */
         for (j = 0; j < numCPU; j++) {
             allocated[j] = false;
+            Events* newEvents = elapseTime(cpus[j], lastTime, currentTime);
+            concatAndDestroyOther(events, newEvents);
         }
 
         for (j = 0; j < processes[i]->numChildren; j++) {
@@ -118,6 +126,10 @@ Events *runProcesses(Process** processes, unsigned processesSize, int numCPU) {
             /* find cpu with shortest remaining time that's not allocated yet */
             int k;
             int shortestCpu = 0;
+            while (allocated[shortestCpu]) {
+                shortestCpu++; /* first unallocated cpu */
+            }
+
             for (k = 1; k < numCPU; k++) {
                 if (!allocated[k]
                  && cpus[k]->remainingQueueTime < cpus[shortestCpu]->remainingQueueTime) {
@@ -125,20 +137,18 @@ Events *runProcesses(Process** processes, unsigned processesSize, int numCPU) {
                 }
             }
 
-            Events *newEvents = 
-                elapseTimeAndAddToQueue(cpus[shortestCpu], lastAllocated[shortestCpu], processes[i]->children[j], processes[i]->arriveTime);
-
-            concatAndDestroyOther(events, newEvents);
+            addToQueue(cpus[shortestCpu], processes[i]->children[j]);
 
             allocated[shortestCpu] = true;
-            lastAllocated[shortestCpu] = processes[i]->arriveTime;
         }
+
+        lastTime = currentTime;
     }
 
 
     /* run all the remaining processes */
     for (i = 0; i < numCPU; i++) {
-        Events *newEvents = finishAllProcesses(cpus[i], lastAllocated[i]);
+        Events *newEvents = finishAllProcesses(cpus[i], lastTime);
         concatAndDestroyOther(events, newEvents);
     }
 
@@ -148,9 +158,32 @@ Events *runProcesses(Process** processes, unsigned processesSize, int numCPU) {
     free(cpus);
 
     free(allocated);
-    free(lastAllocated);
 
     return events;
+}
+
+/* insertion sort as processes could be almost sorted */
+void sortProcesses(Process** processes, unsigned processesSize) {
+    int i;
+    for (i = 1; i < processesSize; i++) {
+        int j;
+        for (j = i - 1; j >= 0 && !processesInOrder(processes[j], processes[j + 1]); j--) {
+            /* if not in order, swap */
+            Process* temp = processes[j];
+            processes[j] = processes[j + 1];
+            processes[j + 1] = temp;
+        }
+    }
+}
+
+bool processesInOrder(Process* a, Process* b) {
+    if (a->arriveTime != b->arriveTime) {
+        return a->arriveTime < b->arriveTime;
+    }
+    if (a->exeTime != b->exeTime) {
+        return a->exeTime < b->exeTime;
+    }
+    return a->id < b->id;
 }
 
 void printResults(Events *events, Process **processes, unsigned processesSize) {
@@ -177,5 +210,5 @@ void printResults(Events *events, Process **processes, unsigned processesSize) {
 }
 
 /* tested using:
- gcc -Wall -o allocate allocate.c events.c process.c cpu.c -std=c89
+gcc -Wall -o allocate allocate.c events.c process.c cpu.c -std=c89 -lm
 */

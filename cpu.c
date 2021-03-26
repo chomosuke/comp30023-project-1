@@ -5,7 +5,6 @@ struct SubprocessNode { /* this will be managed by CPU */
     SubprocessNode *next;
 };
 
-void addToQueue(CPU *this, Subprocess* toAdd);
 Subprocess *popHead(CPU *this);
 
 CPU *newCPU(int id) {
@@ -14,42 +13,51 @@ CPU *newCPU(int id) {
     this->remainingQueueTime = 0;
     this->head = NULL;
     this->id = id;
+    this->processRunning = false;
     return this;
 }
 
 Events *finishAllProcesses(CPU *this, Time time) {
     Events *events = newEvents();
+
     while (this->head != NULL) {
         Subprocess *run = this->head->subprocess;
+        if (!this->processRunning) {
+            addRunning(events, time, run, this->id);
+            this->processRunning = true;
+        }
         time += run->remainingTime;
-        run->remainingTime = 0;
+        run->remainingTime = 0; 
+        recordSubprocessFinished(run->parent, time);
         if (isFinished(run->parent)) {
             addFinished(events, time, run->parent);
         }
         popHead(this);
+        this->processRunning = false;
     }
     return events;
 }
 
-Events *elapseTimeAndAddToQueue(CPU *this, Time lastTime, Subprocess *toAdd, Time addTime) {
+Events *elapseTime(CPU *this, Time lastTime, Time currentTime) {
 
     Events *events = newEvents();
 
-    Time toBeElapsed = addTime - lastTime;
+    Time toBeElapsed = currentTime - lastTime;
 
-    bool unfinished = false;
-    while (this->head != NULL) {
+    while (this->head != NULL && toBeElapsed != 0) {
 
         /* elapse time for running process */
         Subprocess *running = this->head->subprocess;
+        /* start if not already running */
+        if (!this->processRunning) {
+            addRunning(events, currentTime - toBeElapsed, running, this->id);
+            this->processRunning = true;
+        }
+
         if (running->remainingTime > toBeElapsed) {
             running->remainingTime -= toBeElapsed;
             this->remainingQueueTime -= toBeElapsed;
             toBeElapsed = 0;
-
-            /* new process added in a middle of process running */
-            unfinished = true;
-            break;
         } else {
             toBeElapsed -= running->remainingTime;
             this->remainingQueueTime -= running->remainingTime;
@@ -57,28 +65,16 @@ Events *elapseTimeAndAddToQueue(CPU *this, Time lastTime, Subprocess *toAdd, Tim
 
             /* finished, remove from queue */
             popHead(this);
+            this->processRunning = false;
 
             /* check parent finished */
+            recordSubprocessFinished(running->parent, currentTime - toBeElapsed);
             if (isFinished(running->parent)) {
-                addFinished(events, addTime - toBeElapsed, running->parent);
-            }
-
-            /* is there a next process to start? */
-            if (this->head != NULL && toBeElapsed != 0) {
-                addRunning(events, addTime - toBeElapsed, this->head->subprocess, this->id);
-            } else {
-                break;
+                addFinished(events, currentTime - toBeElapsed, running->parent);
             }
         }
     }
-    
-    addToQueue(this, toAdd);
 
-    if (unfinished && toAdd != this->head->subprocess) {
-        /* no new event */
-    } else {
-        addRunning(events, addTime, this->head->subprocess, this->id);
-    }
     return events;
 }
 
@@ -109,6 +105,11 @@ void addToQueue(CPU *this, Subprocess* toAdd) {
         previous->next = node;
     } else {
         this->head = node;
+    }
+
+    if (this->processRunning && toAdd == this->head->subprocess) {
+        /* if toAdd got added to the head and will replace current process */
+        this->processRunning = false;
     }
 }
 

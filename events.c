@@ -2,7 +2,7 @@
 
 void addEvent(Events *this, Event* event);
 void mergeSortEvents(Events *this, unsigned start, unsigned end);
-bool eventInOrder(Event *a, Event *b);
+bool eventsInOrder(Event *a, Event *b);
 
 Events *newEvents() {
     Events *this = malloc(sizeof(Events));
@@ -41,7 +41,7 @@ void addRunning(Events *this, Time currentTime, Subprocess* subprocess, int cpu)
 
 void addFinished(Events *this, Time currentTime, Process* process) {
     Event *event = malloc(sizeof(Event));
-    event->currentTime = currentTime;
+    event->currentTime = process->finishTime;
     event->type = FINISHED;
     sprintf(event->pid, "%u", process->id);
     /* procRemaining will be calculated by main when it's sorting events */
@@ -68,7 +68,7 @@ void mergeSortEvents(Events *this, unsigned start, unsigned end) {
     for (i = 0; i < end - start; i++) {
         if (mid + m >= end
         || (start + s < mid
-         && eventInOrder(this->array[start + s], this->array[mid + m]))) {
+         && eventsInOrder(this->array[start + s], this->array[mid + m]))) {
             result[i] = this->array[start + s];
             s++;
         } else {
@@ -82,7 +82,7 @@ void mergeSortEvents(Events *this, unsigned start, unsigned end) {
     free(result);
 }
 
-bool eventInOrder(Event *a, Event *b) {
+bool eventsInOrder(Event *a, Event *b) {
     if (a->currentTime < b->currentTime) {
         return true;
     } else if (a->currentTime > b->currentTime) {

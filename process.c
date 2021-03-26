@@ -19,6 +19,7 @@ void destorySubprocess(Subprocess *this) {
 Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, int numCPU) {
 
     Process *this = malloc(sizeof(Process));
+    assert(this != NULL);
 
     this->arriveTime = arriveTime;
     this->id = id;
@@ -44,12 +45,20 @@ Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, i
     }
     this->children = malloc(this->numChildren * sizeof(Subprocess*));
 
-    Time remainingTime = ceil(exeTime / this->numChildren) + 1;
+    Time remainingTime;
+    if (this->numChildren == 1) {
+        remainingTime = exeTime;
+    }
+    else {
+        remainingTime = ceil((float)exeTime / this->numChildren) + 1;
+    }
 
     int i;
     for (i = 0; i < this->numChildren; i++) {
         this->children[i] = newSubprocess(this, remainingTime, i);
     }
+
+    this->finishRecorded = false;
 
     return this;
 }
@@ -62,6 +71,18 @@ bool isFinished(Process *this) {
         }
     }
     return true;
+}
+
+void recordSubprocessFinished(Process *this, Time currentTime) {
+    if (this->finishRecorded) {
+        this->finishTime
+            = currentTime > this->finishTime ?
+            currentTime : this->finishTime;
+    }
+    else {
+        this->finishTime = currentTime;
+        this->finishRecorded = true;
+    }
 }
 
 void destroyProcess(Process *this) {
