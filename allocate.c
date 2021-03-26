@@ -201,8 +201,8 @@ void printResults(Events *events, Process **processes, unsigned processesSize) {
             printf("%u,RUNNING,pid=%s,remaining_time=%u,cpu=%d\n",
                    event->currentTime, event->pid, event->remainingTime, event->cpu);
         } else if (event->type == FINISHED) {
-            printf("%u,FINISHED,pid=%s,proc_remaining=%u\n",
-                   event->currentTime, event->pid, procRemaining);
+            printf("%u,FINISHED,pid=%s,proc_remaining=%u, cpu=%d\n",
+                   event->currentTime, event->pid, procRemaining, event->cpu);
         } else {
             printf("Event type error");
         }

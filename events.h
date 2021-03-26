@@ -25,10 +25,10 @@ struct Event { /* will only exist in Events */
     Time currentTime;
     Type type; /* FINISHED or RUNNING */
     char pid[IDLENGTH];
+    int cpu;
 
     /* for RUNNING */
     Time remainingTime;
-    int cpu;
 };
 
 #endif

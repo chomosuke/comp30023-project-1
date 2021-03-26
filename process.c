@@ -73,14 +73,21 @@ bool isFinished(Process *this) {
     return true;
 }
 
-void recordSubprocessFinished(Process *this, Time currentTime) {
+void recordSubprocessFinished(Process *this, Time currentTime, int cpuId) {
     if (this->finishRecorded) {
-        this->finishTime
-            = currentTime > this->finishTime ?
-            currentTime : this->finishTime;
+        if (currentTime > this->finishTime) {
+            /* this is a later time */
+            this->finishTime = currentTime;
+            this->finishCpuId = cpuId;
+        } else if (currentTime == this->finishTime) {
+            if (cpuId < this->finishCpuId) {
+                this->finishCpuId = cpuId;
+            }
+        }
     }
     else {
         this->finishTime = currentTime;
+        this->finishCpuId = cpuId;
         this->finishRecorded = true;
     }
 }

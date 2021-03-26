@@ -28,7 +28,7 @@ Events *finishAllProcesses(CPU *this, Time time) {
         }
         time += run->remainingTime;
         run->remainingTime = 0; 
-        recordSubprocessFinished(run->parent, time);
+        recordSubprocessFinished(run->parent, time, this->id);
         if (isFinished(run->parent)) {
             addFinished(events, time, run->parent);
         }
@@ -68,7 +68,7 @@ Events *elapseTime(CPU *this, Time lastTime, Time currentTime) {
             this->processRunning = false;
 
             /* check parent finished */
-            recordSubprocessFinished(running->parent, currentTime - toBeElapsed);
+            recordSubprocessFinished(running->parent, currentTime - toBeElapsed, this->id);
             if (isFinished(running->parent)) {
                 addFinished(events, currentTime - toBeElapsed, running->parent);
             }

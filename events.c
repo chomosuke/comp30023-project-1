@@ -45,6 +45,7 @@ void addFinished(Events *this, Time currentTime, Process* process) {
     event->type = FINISHED;
     sprintf(event->pid, "%u", process->id);
     /* procRemaining will be calculated by main when it's sorting events */
+    event->cpu = process->finishCpuId;
     addEvent(this, event);
 }
 
@@ -83,21 +84,12 @@ void mergeSortEvents(Events *this, unsigned start, unsigned end) {
 }
 
 bool eventsInOrder(Event *a, Event *b) {
-    if (a->currentTime < b->currentTime) {
-        return true;
-    } else if (a->currentTime > b->currentTime) {
-        return false;
-    } else if (a->type == FINISHED && b->type == RUNNING) {
-        return true;
-    } else if (a->type == RUNNING && b->type == FINISHED) {
-        return false;
-    } else if (a->type == RUNNING && b->type == RUNNING) {
-        return a->cpu < b->cpu;
-    } else if (a->type == FINISHED && b->type == FINISHED) {
-        return true; /* tie break later */
+    if (a->currentTime != b->currentTime) {
+        return a->currentTime < b->currentTime;
+    } else if (a->type != b->type) {
+        return a->type == FINISHED;
     } else {
-        printf("Event type error");
-        return true;
+        return a->cpu < b->cpu;
     }
 }
 
