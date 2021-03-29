@@ -1,3 +1,4 @@
+
 #include "head.h"
 #include "process.h"
 #include "events.h"
@@ -12,10 +13,10 @@ void printResults(Events *events, Process **processes, unsigned processesSize);
 int main(int argc, char **argv) {
 
     /* read cmd arguments */
-    /* char* fileName = "E:/Study/TODO/comp30023-2021-project-1/testcases/task6/input/test_p4_p_2.txt";
-     int numCPU = 4, i; */
-    char* fileName;
+    char* fileName = "E:/Study/TODO/comp30023-2021-project-1/testcases/task4/input/test_p4_n_2.txt";
     int numCPU = 4, i;
+    /* char* fileName;
+    int numCPU = 4, i; */
     bool challenge = false;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-f") == 0) {
@@ -189,7 +190,7 @@ bool processesInOrder(Process* a, Process* b) {
 void printResults(Events *events, Process **processes, unsigned processesSize) {
     sortEvents(events);
 
-    unsigned j = 0;
+    unsigned p = 0, e = 0;
     unsigned procRemaining = 0;
 
     Time totalTurnAround = 0;
@@ -197,12 +198,27 @@ void printResults(Events *events, Process **processes, unsigned processesSize) {
     unsigned i;
     for (i = 0; i < events->length; i++) {
         Event *event = events->array[i];
+
+        /* update procRemaining */
+        while (p < processesSize && processes[p]->arriveTime < event->currentTime) {
+            procRemaining++;
+            p++;
+        }
+        while (e < events->length
+            && events->array[e]->currentTime <= event->currentTime) {
+            if (events->array[e]->type == FINISHED) {
+                procRemaining--;
+            }
+            e++;
+        }
+
+
         if (event->type == RUNNING) {
             printf("%u,RUNNING,pid=%s,remaining_time=%u,cpu=%d\n",
                    event->currentTime, event->pid, event->remainingTime, event->cpu);
         } else if (event->type == FINISHED) {
-            printf("%u,FINISHED,pid=%s,proc_remaining=%u, cpu=%d\n",
-                   event->currentTime, event->pid, procRemaining, event->cpu);
+            printf("%u,FINISHED,pid=%s,proc_remaining=%u\n",
+                   event->currentTime, event->pid, procRemaining);
         } else {
             printf("Event type error");
         }
