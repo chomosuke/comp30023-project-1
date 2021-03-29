@@ -17,5 +17,5 @@
 ./allocate -p 4 -f testcases/task7/test_chal_p4_p.txt -c
 ./allocate -p 5 -f testcases/task7/test_chal_p5_n.txt -c
 ./allocate -p 5 -f testcases/task7/test_chal_p5_p.txt -c
-./allocate -p 6 -f testcases/task7/test_chal_p6_n.txt -c
+./allocate -p 6 -f testcases/task7/test_chal_p6_n_equal.txt -c
 ./allocate -p 6 -f testcases/task7/test_chal_p6_p_equal.txt -c

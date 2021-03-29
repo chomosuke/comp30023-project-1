@@ -1,4 +1,3 @@
-
 #include "events.h"
 
 void addEvent(Events *this, Event* event);

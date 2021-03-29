@@ -1,4 +1,3 @@
-
 #include "head.h"
 #include "process.h"
 #include "events.h"
@@ -9,14 +8,15 @@ Events *runProcesses(Process **processes, unsigned processesSize, int numCPU);
 void sortProcesses(Process** processes, unsigned processesSize);
 bool processesInOrder(Process* a, Process* b);
 void printResults(Events *events, Process **processes, unsigned processesSize);
+double mRound(double d);
 
 int main(int argc, char **argv) {
 
     /* read cmd arguments */
-    char* fileName = "E:/Study/TODO/comp30023-2021-project-1/testcases/task4/input/test_p4_n_2.txt";
-    int numCPU = 4, i;
-    /* char* fileName;
+    /* char* fileName = "E:/Study/TODO/comp30023-2021-project-1/testcases/task4/input/test_p4_n_2.txt";
     int numCPU = 4, i; */
+    char* fileName;
+    int numCPU = 4, i;
     bool challenge = false;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-f") == 0) {
@@ -192,9 +192,6 @@ void printResults(Events *events, Process **processes, unsigned processesSize) {
 
     unsigned p = 0, e = 0;
     unsigned procRemaining = 0;
-
-    Time totalTurnAround = 0;
-
     unsigned i;
     for (i = 0; i < events->length; i++) {
         Event *event = events->array[i];
@@ -223,6 +220,27 @@ void printResults(Events *events, Process **processes, unsigned processesSize) {
             printf("Event type error");
         }
     }
+
+    /* stats */
+    Time totalTurnAround = 0;
+    double maxOverhead = 0, sumOverhead = 0;
+    for (i = 0; i < processesSize; i++) {
+        Time turnAround = processes[i]->finishTime - processes[i]->arriveTime;
+        totalTurnAround += turnAround;
+        double overhead = (double)turnAround / processes[i]->exeTime;
+        maxOverhead = overhead > maxOverhead ? overhead : maxOverhead;
+        sumOverhead += overhead;
+    }
+    Time averageTurnAround = ceil((double)totalTurnAround / processesSize);
+    double averageOverhead = mRound(sumOverhead / processesSize * 100) / 100;
+    maxOverhead = mRound(maxOverhead * 100) / 100;
+    Time makeSpan = events->array[events->length - 1]->currentTime;
+    printf("Turnaround time %u\nTime overhead %g %g\nMakespan %u\n", 
+        averageTurnAround, maxOverhead, averageOverhead, makeSpan);
+}
+
+double mRound(double d) {
+    return (d >= floor(d) + 0.5) ? ceil(d) : floor(d);
 }
 
 /* tested using:
