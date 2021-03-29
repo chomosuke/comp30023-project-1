@@ -5,6 +5,7 @@ void destorySubprocess(Subprocess *this);
 
 Subprocess *newSubprocess(Process *parent, Time remainingTime, ID id) {
     Subprocess *this = malloc(sizeof(Subprocess));
+    assert(this != NULL);
     this->parent = parent;
     this->id = id;
     this->remainingTime = remainingTime;
@@ -41,6 +42,7 @@ Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable) {
 void makeChildren(Process *this, int numChildren) {
     this->numChildren = numChildren;
     this->children = malloc(this->numChildren * sizeof(Subprocess*));
+    assert(this->children != NULL);
 
     Time remainingTime;
     if (this->numChildren == 1) {

@@ -97,6 +97,7 @@ void addToQueue(CPU *this, Subprocess* toAdd) {
 
     /* insert before walk */
     SubprocessNode *node = malloc(sizeof(SubprocessNode));
+    assert(node != NULL);
     node->subprocess = toAdd;
 
     node->next = walk;

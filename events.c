@@ -10,6 +10,7 @@ Events *newEvents() {
     this->length = 0;
     this->size = 2;
     this->array = malloc(this->size * sizeof(Event*));
+    assert(this->array != NULL);
 
     return this;
 }
@@ -41,6 +42,7 @@ void addRunning(Events *this, Time currentTime, Subprocess* subprocess, int cpu)
 
 void addFinished(Events *this, Time currentTime, Process* process) {
     Event *event = malloc(sizeof(Event));
+    assert(event != NULL);
     event->currentTime = process->finishTime;
     event->type = FINISHED;
     sprintf(event->pid, "%u", process->id);
@@ -65,6 +67,7 @@ void mergeSortEvents(Events *this, unsigned start, unsigned end) {
 
     long long resultSize = (end - start) * sizeof(Event*);
     Event** result = malloc(resultSize);
+    assert(result != NULL);
     unsigned i, s = 0, m = 0;
     for (i = 0; i < end - start; i++) {
         if (mid + m >= end

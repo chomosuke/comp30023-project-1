@@ -2,6 +2,7 @@
 #include "process.h"
 #include "events.h"
 #include "cpu.h"
+#include "processesWaiting.h"
 
 Process **readProcesses(const char *fileName, unsigned *size);
 int getMaxNumChildren(Process* process, int numCPU);
@@ -16,10 +17,10 @@ double mRound(double d);
 int main(int argc, char **argv) {
 
     /* read cmd arguments */
-    /* char* fileName = "E:/Study/TODO/comp30023-2021-project-1/testcases/task4/input/test_p4_n_2.txt";
-    int numCPU = 4, i; */
+    /*char* fileName = "E:/Study/TODO/comp30023-2021-project-1/testcases/task7/test_chal_p6_n_equal.txt";
+    int numCPU = 6, i; */
     char* fileName;
-    int numCPU = 4, i;
+    int numCPU, i; 
     bool challenge = false;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-f") == 0) {
@@ -39,8 +40,7 @@ int main(int argc, char **argv) {
     Process** processes = readProcesses(fileName, &processesSize);
 
     /* go through processes one by one and allocate their child to CPUs and collect their events */
-    Events* (*allocate)(Process**, unsigned, CPU**, int)
-         = challenge ? allocateChallenge : allocateNormal;
+    Events* (*allocate)(Process**, unsigned, CPU**, int) = challenge ? allocateChallenge : allocateNormal;
     Events *events = runProcesses(processes, processesSize, numCPU, allocate);
 
     /* sort events */
@@ -165,60 +165,38 @@ Events *allocateNormal(Process** processes, unsigned processesSize, CPU** cpus, 
 Events *allocateChallenge(Process** processes, unsigned processesSize, CPU** cpus, int numCPU) {
     Events *events = newEvents();
 
-    bool *allocated = malloc(numCPU * sizeof(bool));
-    assert(allocated != NULL);
-    Time lastTime = 0;
-
-    unsigned i;
-    /* allocate processes to cpu one by one */ 
-    for (i = 0; i < processesSize; i++) {
-
-        makeChildren(processes[i], getMaxNumChildren(processes[i], numCPU));
-
-        Time currentTime = processes[i]->arriveTime;
+    Time time = 0;
+    ProcessesWaiting *waitingRoom = newProcessesWaiting();
+    unsigned i = 0;
+    while (i < processesSize || !noProcess(waitingRoom)) {
+        while (i < processesSize && time == processes[i]->arriveTime) {
+            /* add to waiting room */
+            addProcess(waitingRoom, processes[i]);
+            i++;
+        }
 
         int j;
+        for (j = 0; j < numCPU && !noProcess(waitingRoom); j++) {
+            if (cpus[j]->remainingQueueTime == 0) {
+                /* allocate the biggest process to it */
+                Process *process = popBiggest(waitingRoom);
+                makeChildren(process, 1);
+                addToQueue(cpus[j], process->children[0]);
+            }
+        }
 
-        /* elapse time for all cpu and mark them unallocated */
+        time++;
         for (j = 0; j < numCPU; j++) {
-            allocated[j] = false;
-            Events* newEvents = elapseTime(cpus[j], lastTime, currentTime);
-            concatAndDestroyOther(events, newEvents);
+            concatAndDestroyOther(events, elapseTime(cpus[j], time - 1, time));
         }
-
-        for (j = 0; j < processes[i]->numChildren; j++) {
-
-            /* allocate the subprocess */
-
-            /* find cpu with shortest remaining time that's not allocated yet */
-            int k;
-            int shortestCpu = 0;
-            while (allocated[shortestCpu]) {
-                shortestCpu++; /* first unallocated cpu */
-            }
-
-            for (k = 1; k < numCPU; k++) {
-                if (!allocated[k]
-                 && cpus[k]->remainingQueueTime < cpus[shortestCpu]->remainingQueueTime) {
-                    shortestCpu = k;
-                }
-            }
-
-            addToQueue(cpus[shortestCpu], processes[i]->children[j]);
-
-            allocated[shortestCpu] = true;
-        }
-
-        lastTime = currentTime;
     }
 
+    
     /* run all the remaining processes */
     for (i = 0; i < numCPU; i++) {
-        Events *newEvents = finishAllProcesses(cpus[i], lastTime);
+        Events *newEvents = finishAllProcesses(cpus[i], time);
         concatAndDestroyOther(events, newEvents);
     }
-
-    free(allocated);
 
     return events;
 }
@@ -229,6 +207,7 @@ Events *runProcesses(Process** processes, unsigned processesSize, int numCPU, Ev
 
     /* initialize some CPU */
     CPU** cpus = malloc(numCPU * sizeof(CPU*));
+    assert(cpus != NULL);
     unsigned i;
     for (i = 0; i < numCPU; i++) {
         cpus[i] = newCPU(i);
@@ -325,5 +304,5 @@ double mRound(double d) {
 }
 
 /* tested using:
-gcc -Wall -o allocate allocate.c events.c process.c cpu.c -std=c89 -lm
+gcc -Wall -o allocate allocate.c events.c process.c cpu.c processesWaiting.c -std=c89 -lm
 */
