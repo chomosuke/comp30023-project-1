@@ -1,0 +1,4 @@
+When a process arrives I put them in a waiting room.
+When a CPU becomes vacant, I allocate the biggest process to it.
+The smaller process allocated at the end will fill up "gaps" left by the big processes.
+I don't split parallelisable processes to avoid synchronisation cost.
