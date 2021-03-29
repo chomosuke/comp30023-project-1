@@ -6,7 +6,8 @@
 typedef struct Process Process;
 typedef struct Subprocess Subprocess;
 
-Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, int numCPU);
+Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable);
+void makeChildren(Process *this, int numChildren);
 bool isFinished(Process *this);
 void recordSubprocessFinished(Process* this, Time currentTime, int cpuId);
 void destroyProcess(Process *this);

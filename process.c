@@ -16,7 +16,7 @@ void destorySubprocess(Subprocess *this) {
     free(this);
 }
 
-Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, int numCPU) {
+Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable) {
 
     Process *this = malloc(sizeof(Process));
     assert(this != NULL);
@@ -33,34 +33,27 @@ Process *newProcess(Time arriveTime, ID id, Time exeTime, char parallelisable, i
         printf("unrecognized parallelisable input.\n");
     }
 
-    /* make children */
-    if (this->parallelisable) {
-        if (numCPU == 2) { /* 2 cpu will always split the process */
-            this->numChildren = 2;
-        } else {
-            this->numChildren = numCPU < this->exeTime ? numCPU : this->exeTime;
-        }
-    } else {
-        this->numChildren = 1;
-    }
+    this->finishRecorded = false;
+
+    return this;
+}
+
+void makeChildren(Process *this, int numChildren) {
+    this->numChildren = numChildren;
     this->children = malloc(this->numChildren * sizeof(Subprocess*));
 
     Time remainingTime;
     if (this->numChildren == 1) {
-        remainingTime = exeTime;
+        remainingTime = this->exeTime;
     }
     else {
-        remainingTime = ceil((float)exeTime / this->numChildren) + 1;
+        remainingTime = ceil((float)this->exeTime / this->numChildren) + 1;
     }
 
     int i;
     for (i = 0; i < this->numChildren; i++) {
         this->children[i] = newSubprocess(this, remainingTime, i);
     }
-
-    this->finishRecorded = false;
-
-    return this;
 }
 
 bool isFinished(Process *this) {

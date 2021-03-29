@@ -3,8 +3,11 @@
 #include "events.h"
 #include "cpu.h"
 
-Process **readProcesses(const char *fileName, unsigned *size, int numCPU);
-Events *runProcesses(Process **processes, unsigned processesSize, int numCPU);
+Process **readProcesses(const char *fileName, unsigned *size);
+int getMaxNumChildren(Process* process, int numCPU);
+Events *allocateNormal(Process** processes, unsigned processesSize, CPU** cpus, int numCPU);
+Events *allocateChallenge(Process** processes, unsigned processesSize, CPU** cpus, int numCPU);
+Events *runProcesses(Process **processes, unsigned processesSize, int numCPU, Events* (*allocate)(Process**, unsigned, CPU**, int));
 void sortProcesses(Process** processes, unsigned processesSize);
 bool processesInOrder(Process* a, Process* b);
 void printResults(Events *events, Process **processes, unsigned processesSize);
@@ -33,16 +36,15 @@ int main(int argc, char **argv) {
     }
 
     unsigned processesSize;
-    Process** processes = readProcesses(fileName, &processesSize, numCPU);
+    Process** processes = readProcesses(fileName, &processesSize);
 
     /* go through processes one by one and allocate their child to CPUs and collect their events */
-    Events *events = runProcesses(processes, processesSize, numCPU);
-
+    Events* (*allocate)(Process**, unsigned, CPU**, int)
+         = challenge ? allocateChallenge : allocateNormal;
+    Events *events = runProcesses(processes, processesSize, numCPU, allocate);
 
     /* sort events */
     printResults(events, processes, processesSize);
-
-
 
     for (i = 0; i < processesSize; i++) {
         destroyProcess(processes[i]);
@@ -55,8 +57,7 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-Process **readProcesses(const char *fileName, unsigned *size, int numCPU) {
-    /* read input file */
+Process **readProcesses(const char *fileName, unsigned *size) {
     FILE *file = fopen(fileName, "r");
     assert(file != NULL);
 
@@ -78,7 +79,7 @@ Process **readProcesses(const char *fileName, unsigned *size, int numCPU) {
             assert(processes != NULL);
         }
 
-        processes[i] = newProcess(arriveTime, id, exeTime, p, numCPU);
+        processes[i] = newProcess(arriveTime, id, exeTime, p);
 
     }
 
@@ -89,25 +90,29 @@ Process **readProcesses(const char *fileName, unsigned *size, int numCPU) {
     return processes;
 }
 
-Events *runProcesses(Process** processes, unsigned processesSize, int numCPU) {
+int getMaxNumChildren(Process* process, int numCPU) {
+    if (!process->parallelisable) {
+        return 1;
+    }
+    if (numCPU == 2) { /* 2 cpu will always split the process */
+        return 2;
+    }
+    return numCPU < process->exeTime ? numCPU : process->exeTime;
+}
 
-    sortProcesses(processes, processesSize);
+Events *allocateNormal(Process** processes, unsigned processesSize, CPU** cpus, int numCPU) {
 
     Events *events = newEvents();
-
-    /* initialize some CPU */
-    CPU** cpus = malloc(numCPU * sizeof(CPU*));
-    unsigned i;
-    for (i = 0; i < numCPU; i++) {
-        cpus[i] = newCPU(i);
-    }
 
     bool *allocated = malloc(numCPU * sizeof(bool));
     assert(allocated != NULL);
     Time lastTime = 0;
 
+    unsigned i;
     /* allocate processes to cpu one by one */ 
     for (i = 0; i < processesSize; i++) {
+
+        makeChildren(processes[i], getMaxNumChildren(processes[i], numCPU));
 
         Time currentTime = processes[i]->arriveTime;
 
@@ -146,6 +151,66 @@ Events *runProcesses(Process** processes, unsigned processesSize, int numCPU) {
         lastTime = currentTime;
     }
 
+    /* run all the remaining processes */
+    for (i = 0; i < numCPU; i++) {
+        Events *newEvents = finishAllProcesses(cpus[i], lastTime);
+        concatAndDestroyOther(events, newEvents);
+    }
+
+    free(allocated);
+
+    return events;
+}
+
+Events *allocateChallenge(Process** processes, unsigned processesSize, CPU** cpus, int numCPU) {
+    Events *events = newEvents();
+
+    bool *allocated = malloc(numCPU * sizeof(bool));
+    assert(allocated != NULL);
+    Time lastTime = 0;
+
+    unsigned i;
+    /* allocate processes to cpu one by one */ 
+    for (i = 0; i < processesSize; i++) {
+
+        makeChildren(processes[i], getMaxNumChildren(processes[i], numCPU));
+
+        Time currentTime = processes[i]->arriveTime;
+
+        int j;
+
+        /* elapse time for all cpu and mark them unallocated */
+        for (j = 0; j < numCPU; j++) {
+            allocated[j] = false;
+            Events* newEvents = elapseTime(cpus[j], lastTime, currentTime);
+            concatAndDestroyOther(events, newEvents);
+        }
+
+        for (j = 0; j < processes[i]->numChildren; j++) {
+
+            /* allocate the subprocess */
+
+            /* find cpu with shortest remaining time that's not allocated yet */
+            int k;
+            int shortestCpu = 0;
+            while (allocated[shortestCpu]) {
+                shortestCpu++; /* first unallocated cpu */
+            }
+
+            for (k = 1; k < numCPU; k++) {
+                if (!allocated[k]
+                 && cpus[k]->remainingQueueTime < cpus[shortestCpu]->remainingQueueTime) {
+                    shortestCpu = k;
+                }
+            }
+
+            addToQueue(cpus[shortestCpu], processes[i]->children[j]);
+
+            allocated[shortestCpu] = true;
+        }
+
+        lastTime = currentTime;
+    }
 
     /* run all the remaining processes */
     for (i = 0; i < numCPU; i++) {
@@ -153,12 +218,28 @@ Events *runProcesses(Process** processes, unsigned processesSize, int numCPU) {
         concatAndDestroyOther(events, newEvents);
     }
 
+    free(allocated);
+
+    return events;
+}
+
+Events *runProcesses(Process** processes, unsigned processesSize, int numCPU, Events* (*allocate)(Process**, unsigned, CPU**, int)) {
+
+    sortProcesses(processes, processesSize);
+
+    /* initialize some CPU */
+    CPU** cpus = malloc(numCPU * sizeof(CPU*));
+    unsigned i;
+    for (i = 0; i < numCPU; i++) {
+        cpus[i] = newCPU(i);
+    }
+
+    Events *events = allocate(processes, processesSize, cpus, numCPU);
+
     for (i = 0; i < numCPU; i++) {
         destroyCPU(cpus[i]);
     }
     free(cpus);
-
-    free(allocated);
 
     return events;
 }
