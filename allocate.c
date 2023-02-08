@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
     /*char* fileName = "E:/Study/TODO/comp30023-2021-project-1/testcases/task7/test_chal_p6_n_equal.txt";
     int numCPU = 6, i; */
     char* fileName;
-    int numCPU, i; 
+    int numCPU, i;
     bool challenge = false;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-f") == 0) {
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
     for (i = 0; i < processesSize; i++) {
         destroyProcess(processes[i]);
     }
-    
+
     free(processes);
 
     destroyEvents(events);
@@ -191,7 +191,6 @@ Events *allocateChallenge(Process** processes, unsigned processesSize, CPU** cpu
         }
     }
 
-    
     /* run all the remaining processes */
     for (i = 0; i < numCPU; i++) {
         Events *newEvents = finishAllProcesses(cpus[i], time);
@@ -268,7 +267,6 @@ void printResults(Events *events, Process **processes, unsigned processesSize) {
             }
             e++;
         }
-
 
         if (event->type == RUNNING) {
             printf("%u,RUNNING,pid=%s,remaining_time=%u,cpu=%d\n",
